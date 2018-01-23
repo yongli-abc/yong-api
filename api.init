@@ -1,0 +1,75 @@
+#!/bin/bash
+
+WORKER_NUM=2
+HOST="127.0.0.1"
+PORT="99"
+PID_PATH="$PWD/pid"
+
+start() {
+	echo "Starting yong-api"
+	if [[ -f "$PID_PATH" ]]; then
+		pid=$(cat "$PID_PATH")
+		echo $"gunicorn is already running yong-api with pid [$pid], please stop first."
+		exit 1
+	fi
+
+	echo "OK, no gunicorn yong-api detected running."
+
+	# start the process
+	echo "Starting gunicorn yong-api at $HOST:$PORT, pid path=$PID_PATH"
+	gunicorn --workers="$WORKER_NUM" -D index:app -b "$HOST":"$PORT" -p "$PID_PATH"
+
+	# check PID file created
+	sleep 0.5
+	if [[ -f "$PID_PATH" ]]; then
+		echo "Seen pid file created, started successfully."
+		exit 0
+	else
+		echo "Didn't see pid file created, failed to start."
+		exit 1
+	fi
+}
+
+stop() {
+	echo "Stopping yong-api"
+	if [[ ! -f "$PID_PATH" ]]; then
+		echo "No pid file found, can't sotp"
+		exit 1
+	fi
+
+	pid=$(cat "$PID_PATH")
+	echo "Killing pid: $pid"
+	kill -9 "$pid"
+
+	echo "Removing pid file."
+	rm "$PID_PATH"
+
+	exit $?
+}
+
+status() {
+	if [[ -f "$PID_PATH" ]]; then
+		echo "Seen pid file, yong-api is probably running at $HOST:$PORT."
+	else
+		echo "Didn't see pid file, yong-api is probably not running."
+	fi
+
+	exit $?
+}
+
+case "$1" in
+	start)
+		start
+	;;
+	stop)
+		stop
+	;;
+	status)
+		status
+	;;
+	*)
+		echo "Usage: {start|stop|status}"
+		exit 1
+	;;
+esac
+exit $?
